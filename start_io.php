@@ -13,6 +13,7 @@ $last_online_count = 0;
 // 记录最后一次广播的在线页面数
 $last_online_page_count = 0;
 
+
 // PHPSocketIO服务
 $sender_io = new SocketIO(2120);
 // 客户端发起连接事件时，设置连接socket的各种事件回调
@@ -35,8 +36,6 @@ $sender_io->on('connection', function ($socket) {
         $socket->join($uid);
         $socket->uid = $uid;
         // 更新这个socket对应页面的在线数据
-        $uidlist =  json_encode($uidConnectionMap);
-
         $socket->emit('update_online_count', $uidConnectionMap);
     });
 
@@ -94,13 +93,34 @@ $sender_io->on('workerStart', function () {
         $online_page_count_now = array_sum($uidConnectionMap);
         // 只有在客户端在线数变化了才广播，减少不必要的客户端通讯
         if ($last_online_count != $online_count_now || $last_online_page_count != $online_page_count_now) {
-            $uidlist =  json_encode($uidConnectionMap);
             $sender_io->emit('update_online_count', $uidConnectionMap);
             $last_online_count = $online_count_now;
             $last_online_page_count = $online_page_count_now;
         }
     });
+
+    // 证书最好是申请的证书
+    $context = array(
+        'ssl' => array(
+            'local_cert'  => '/etc/letsencrypt/live/network.cliffordgroup.com.cn/fullchain.pem', // 也可以是crt文件
+            'local_pk'    => '/etc/letsencrypt/live/network.cliffordgroup.com.cn/privkey.pem',
+            'verify_peer' => false,
+        )
+    );
+    // 这里设置的是websocket协议，也可以http协议或者其它协议
+    $worker = new Worker('http://0.0.0.0:4433', $context);
+    // 设置transport开启ssl
+    $worker->transport = 'ssl';
+    $worker->count = 4;
+    $worker->onMessage = function ($con, $msg) {
+        global $uidConnectionMap;
+        $con->send(json_encode($uidConnectionMap));
+    };
+    $worker->listen();
 });
+
+
+
 
 if (!defined('GLOBAL_START')) {
     Worker::runAll();
