@@ -69,15 +69,19 @@ $sender_io->on('workerStart', function () {
                 //$_POST['content'] = htmlspecialchars_decode(@$_POST['content']);
                 // 有指定uid则向uid所在socket组发送数据
                 if ($to) {
+                    $logmsg = $to;
                     $sender_io->to($to)->emit('new_msg', $POST_DATA);
                 // 否则向所有uid推送数据
                 } else {
+                    $logmsg = "@all";
                     $sender_io->emit('new_msg', $POST_DATA);
                 }
                 // http接口返回，如果用户离线socket返回fail
                 if ($to && !isset($uidConnectionMap[$to])) {
+                    file_put_contents("sendmsg.log", date("Y-m-d H:i:s")." 发送消息给-->".$logmsg." offline\n", FILE_APPEND);
                     return $http_connection->send('offline');
                 } else {
+                    file_put_contents("sendmsg.log", date("Y-m-d H:i:s")." 发送消息给-->".$logmsg." ok\n", FILE_APPEND);
                     return $http_connection->send('ok');
                 }
         }
